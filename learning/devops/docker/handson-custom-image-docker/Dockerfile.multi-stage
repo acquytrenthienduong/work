@@ -1,0 +1,28 @@
+# Stage 1: Build dependencies
+FROM node:18-alpine AS deps
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci --only=production
+
+# Stage 2: Production image
+FROM node:18-alpine AS runner
+WORKDIR /app
+
+# Copy dependencies từ build stage
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+
+# Create user
+RUN addgroup -g 1001 -S nodejs
+RUN adduser -S nodejs -u 1001
+
+# Set ownership
+RUN chown -R nodejs:nodejs /app
+USER nodejs
+
+EXPOSE 3000
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+  CMD curl -f http://localhost:3000/api/health || exit 1
+
+CMD ["npm", "start"]
